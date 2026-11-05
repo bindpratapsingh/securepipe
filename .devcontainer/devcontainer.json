@@ -1,0 +1,80 @@
+{
+  "name": "SecurePipe",
+
+  // Plain Ubuntu base; everything else comes from the features below so the
+  // image stays something GitHub can cache and rebuild quickly.
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+
+  "features": {
+    // JDK 17 matches the pom's java.version and the runtime base image.
+    // Maven is deliberately not installed: ./mvnw pins Maven 3.9.14, and
+    // Spring Boot 4 refuses to build with anything older than 3.9.
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "installMaven": false,
+      "installGradle": false
+    },
+
+    // A real nested Docker daemon. minikube's docker driver needs to create
+    // containers and its own bridge network, which docker-outside-of-docker
+    // cannot do cleanly.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": true
+    },
+
+    "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {
+      "kubectl": "latest",
+      "helm": "latest",
+      "minikube": "latest"
+    }
+  },
+
+  // 4 cores and 16 GB. The stack peaks at roughly 7.5 GB with Jenkins,
+  // SonarQube, a Maven build and minikube all live, so 8 GB is too tight.
+  // On the free Codespaces tier this machine burns 4 core-hours per hour,
+  // which is about 30 hours a month - run scripts/stop.sh when you finish.
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  },
+
+  "forwardPorts": [8080, 9000, 30080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Jenkins",
+      "onAutoForward": "notify"
+    },
+    "9000": {
+      "label": "SonarQube",
+      "onAutoForward": "silent"
+    },
+    "30080": {
+      "label": "VRSMS app (minikube NodePort)",
+      "onAutoForward": "silent"
+    }
+  },
+
+  // Git on Windows can check these out with CRLF endings, which makes the
+  // shebang line unparseable. .gitattributes forces LF; this fixes the
+  // execute bit, which git does not track on Windows.
+  "postCreateCommand": "chmod +x scripts/*.sh app/mvnw && ./scripts/00-preflight.sh",
+
+  "customizations": {
+    "vscode": {
+      // Kept deliberately small. The Java language server would compete with
+      // Jenkins and SonarQube for memory inside this same container.
+      "extensions": [
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker",
+        "ms-kubernetes-tools.vscode-kubernetes-tools"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "files.eol": "\n"
+      }
+    }
+  },
+
+  "remoteUser": "vscode"
+}

@@ -1,0 +1,15 @@
+apiVersion: v2
+name: vrsms
+description: VRSMS backend - Video Rental Store Management System, with its PostgreSQL database
+type: application
+
+# version      - the chart's own version, bumped when templates change
+# appVersion   - the application release the chart defaults to deploying
+version: 0.1.0
+appVersion: "0.0.1-SNAPSHOT"
+
+keywords:
+  - spring-boot
+  - vrsms
+maintainers:
+  - name: bindpratapsingh

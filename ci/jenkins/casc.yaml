@@ -1,0 +1,81 @@
+# Jenkins Configuration as Code.
+#
+# Everything Jenkins needs to run this pipeline is declared here, so the
+# container boots straight into a working job with no setup wizard and no
+# manual clicking. ${VAR} values come from ci/.env, which the bootstrap
+# script generates.
+
+jenkins:
+  systemMessage: |
+    SecurePipe - CI/CD pipeline for the VRSMS backend.
+    Stages: build -> unit tests -> SonarQube quality gate -> Trivy image scan -> Helm deploy to minikube.
+  numExecutors: 2
+  mode: NORMAL
+
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_ID:-admin}"
+          password: "${JENKINS_ADMIN_PASSWORD:-admin}"
+
+  authorizationStrategy:
+    loggedInAuthenticationStrategy:
+      allowAnonymousRead: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: "sonar-token"
+              secret: "${SONAR_TOKEN:-}"
+              description: "SonarQube user token, minted by scripts/01-start-toolchain.sh"
+
+unclassified:
+  location:
+    url: "${JENKINS_URL:-http://localhost:8080/}"
+    adminAddress: "securepipe@example.com"
+
+  # Registers the SonarQube server so the pipeline can use
+  # withSonarQubeEnv('SonarQube') instead of hardcoding a URL and token.
+  sonarGlobalConfiguration:
+    buildWrapperEnabled: true
+    installations:
+      - name: "SonarQube"
+        serverUrl: "http://sonarqube:9000"
+        credentialsId: "sonar-token"
+        triggers:
+          skipScmCause: false
+          skipUpstreamCause: false
+
+jobs:
+  - script: |
+      pipelineJob('vrsms-securepipe') {
+        description('''
+          Builds the VRSMS Spring Boot backend, runs its unit tests, gates on a
+          SonarQube quality gate, scans the container image with Trivy (failing
+          on CRITICAL findings), and deploys to minikube with Helm.
+        '''.stripIndent().trim())
+
+        logRotator {
+          numToKeep(20)
+          artifactNumToKeep(10)
+        }
+
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/bindpratapsingh/securepipe.git')
+                }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(false)
+          }
+        }
+      }

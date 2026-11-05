@@ -1,0 +1,9 @@
+# Keep the build context tiny: only the jar is actually copied in.
+src/
+.mvn/
+mvnw
+mvnw.cmd
+pom.xml
+target/*
+!target/vrsms-server.jar
+*.md

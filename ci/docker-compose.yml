@@ -1,0 +1,75 @@
+# The SecurePipe toolchain: a Jenkins controller and a SonarQube server.
+#
+# Do not run "docker compose up" directly. Use ./scripts/01-start-toolchain.sh,
+# which brings SonarQube up first, mints an API token from it, and only then
+# starts Jenkins - because Jenkins reads that token at boot through
+# Configuration as Code.
+
+name: securepipe
+
+services:
+  sonarqube:
+    image: sonarqube:community
+    container_name: securepipe-sonarqube
+    restart: unless-stopped
+    environment:
+      # SonarQube embeds Elasticsearch, which refuses to start in a container
+      # unless the host sets vm.max_map_count=262144. The bootstrap script
+      # sets it; this disables the bootstrap check as a safety net.
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+      # Default heaps are generous. Capping all three JVMs keeps SonarQube
+      # near 2 GB so there is headroom for Jenkins, Maven and minikube.
+      SONAR_WEB_JAVAOPTS: "-Xmx512m -Xms128m"
+      SONAR_CE_JAVAOPTS: "-Xmx512m -Xms128m"
+      SONAR_SEARCH_JAVAOPTS: "-Xmx512m -Xms512m"
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  jenkins:
+    build:
+      context: ./jenkins
+    image: securepipe/jenkins:latest
+    container_name: securepipe-jenkins
+    restart: unless-stopped
+    # Jenkins needs to outlive a slow shutdown without corrupting its home dir.
+    stop_grace_period: 1m
+    environment:
+      JENKINS_ADMIN_ID: "${JENKINS_ADMIN_ID:-admin}"
+      JENKINS_ADMIN_PASSWORD: "${JENKINS_ADMIN_PASSWORD:-admin}"
+      SONAR_TOKEN: "${SONAR_TOKEN:-}"
+      JENKINS_URL: "${JENKINS_URL:-http://localhost:8080/}"
+      # minikube writes a kubeconfig that references its certificates by
+      # absolute path under $HOME/.minikube. Those paths must resolve to the
+      # same place inside this container, which is why the two mounts below
+      # map $HOME onto itself rather than into /root.
+      KUBECONFIG: "${HOME}/.kube/config"
+      MINIKUBE_HOME: "${HOME}"
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # Maven's local repository. Without this, every build re-downloads the
+      # entire Spring Boot dependency tree.
+      - jenkins_m2:/root/.m2
+      # Docker-outside-of-Docker: the Jenkins container runs the docker CLI
+      # against the host's daemon. Builds are therefore host-visible, which is
+      # what lets "minikube image load" find the image afterwards.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "${HOME}/.kube:${HOME}/.kube"
+      - "${HOME}/.minikube:${HOME}/.minikube"
+
+volumes:
+  jenkins_home:
+  jenkins_m2:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:

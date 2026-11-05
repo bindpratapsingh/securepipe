@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1
+#
+# DELIBERATELY INSECURE. Do not deploy this.
+#
+# This exists to prove the Trivy stage actually gates the pipeline. openjdk:17-jdk-slim
+# is a deprecated, no-longer-patched Debian image, so it carries known CRITICAL CVEs
+# in its OS packages. It also runs as root and ships a full JDK.
+#
+# Demo it with:
+#   ./scripts/demo-trivy-gate.sh
+# or run the Jenkins job with DOCKERFILE=Dockerfile.vulnerable
+#
+# Expected result: the Trivy stage exits non-zero and the pipeline stops
+# before the Helm deploy stage ever runs.
+
+FROM openjdk:17-jdk-slim
+
+WORKDIR /app
+
+ARG JAR_FILE=target/vrsms-server.jar
+COPY ${JAR_FILE} app.jar
+
+EXPOSE 8080
+
+# Note: no USER directive, so this runs as root.
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

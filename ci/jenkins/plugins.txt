@@ -1,0 +1,32 @@
+# Resolved with their dependencies by jenkins-plugin-cli at image build time.
+# Versions are intentionally unpinned so the image picks a mutually compatible
+# set for whatever lts-jdk17 base it is built against.
+
+# Declarative Pipeline (brings workflow-cps, pipeline-model-definition, etc.)
+workflow-aggregator
+
+# Checkout of this repo
+git
+
+# Define Jenkins' own config in code, so there is no setup wizard to click
+configuration-as-code
+# Lets that config declare the pipeline job itself
+job-dsl
+
+# SonarQube server connection, withSonarQubeEnv, and waitForQualityGate
+sonar
+
+# Test + coverage reporting in the build UI
+junit
+jacoco
+
+# Publishes the Trivy HTML vulnerability report as a build artifact page
+htmlpublisher
+
+# withCredentials, for the Sonar token
+credentials-binding
+
+# Quality-of-life: timestamps in logs, workspace cleanup, stage graph
+timestamper
+ws-cleanup
+pipeline-stage-view

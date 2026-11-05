@@ -1,0 +1,9 @@
+# CVEs accepted as risks, one per line. Trivy skips these when gating.
+#
+# Only add an ID here with a reason and a date. An ignore file with no
+# explanation is how a known-vulnerable image reaches production.
+#
+# Format:
+#   CVE-2024-12345   # reason, who decided, when to revisit
+#
+# Nothing is ignored right now, which is the correct starting state.

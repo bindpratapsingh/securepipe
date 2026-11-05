@@ -1,0 +1,27 @@
+{{/*
+Non-secret configuration.
+
+Spring Boot's relaxed binding maps SPRING_DATASOURCE_URL onto
+spring.datasource.url, and TWILIO_ACCOUNT_SID onto twilio.account-sid, so
+these override the values committed in application.properties without the
+image needing a profile file baked in.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "vrsms.fullname" . }}
+  labels:
+    {{- include "vrsms.labels" . | nindent 4 }}
+data:
+  SPRING_DATASOURCE_URL: {{ include "vrsms.jdbcUrl" . | quote }}
+  SPRING_DATASOURCE_USERNAME: {{ .Values.postgres.username | quote }}
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: "org.postgresql.Driver"
+
+  SPRING_JPA_HIBERNATE_DDL_AUTO: {{ .Values.jpa.ddlAuto | quote }}
+  SPRING_JPA_SHOW_SQL: {{ .Values.jpa.showSql | quote }}
+  SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: "org.hibernate.dialect.PostgreSQLDialect"
+
+  TWILIO_ACCOUNT_SID: {{ .Values.twilio.accountSid | quote }}
+  TWILIO_VERIFY_SERVICE_SID: {{ .Values.twilio.verifyServiceSid | quote }}
+
+  MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info"

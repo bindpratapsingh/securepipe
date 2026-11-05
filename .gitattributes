@@ -1,0 +1,24 @@
+# Normalise everything to LF in the repository.
+#
+# This is not cosmetic. The scripts in scripts/ and the Maven wrapper run on
+# Linux, and a CRLF line ending on the shebang line makes the kernel look for
+# an interpreter named "/usr/bin/env bash\r", which does not exist. The error
+# it produces ("bad interpreter") gives no hint about line endings.
+* text=auto eol=lf
+
+*.sh      text eol=lf
+mvnw      text eol=lf
+Dockerfile*  text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+*.tpl     text eol=lf
+Jenkinsfile  text eol=lf
+
+# Windows batch files genuinely need CRLF.
+*.cmd     text eol=crlf
+*.bat     text eol=crlf
+
+*.jar     binary
+*.pdf     binary
+*.png     binary
+*.jpg     binary

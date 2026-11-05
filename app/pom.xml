@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.0.4</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.vrsms</groupId>
+	<artifactId>server</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>vrsms-server</name>
+	<description>VRSMS backend - Video Rental Store Management System</description>
+
+	<properties>
+		<java.version>17</java.version>
+		<jacoco.version>0.8.12</jacoco.version>
+		<!--
+		  Must stay roughly in step with the SonarQube server in
+		  ci/docker-compose.yml, which tracks "community" (latest). Recent
+		  servers reject scanners that are too old. If the Sonar stage fails
+		  with a version complaint, or Maven cannot resolve this plugin at all,
+		  this one property is the only thing to change - see
+		  docs/TROUBLESHOOTING.md.
+		-->
+		<sonar-maven-plugin.version>5.0.0.4389</sonar-maven-plugin.version>
+
+		<!-- JUnit tags the CI test stage skips. See maven-surefire-plugin below. -->
+		<test.excludedGroups>integration,ui</test.excludedGroups>
+
+		<!--
+		  Where JaCoCo writes its XML report, for the SonarQube stage to upload.
+		  Kept on one line: Maven does not trim property values, and a leading
+		  newline would make this an unresolvable path.
+		-->
+		<sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+		<!-- Entities and config classes are structure, not logic; excluding them
+		     keeps the coverage figure meaningful. -->
+		<sonar.coverage.exclusions>**/ServerApplication.java,**/models/**,**/config/**</sonar.coverage.exclusions>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
+		<!--
+		  Actuator exposes /actuator/health, which the Helm chart uses for the
+		  Kubernetes liveness and readiness probes.
+		-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.twilio.sdk</groupId>
+			<artifactId>twilio</artifactId>
+			<version>10.1.0</version>
+		</dependency>
+
+		<!--
+		  Selenium is test-only. It was compile-scoped originally, which shipped
+		  the whole browser-automation stack inside the production jar.
+		-->
+		<dependency>
+			<groupId>org.seleniumhq.selenium</groupId>
+			<artifactId>selenium-java</artifactId>
+			<version>4.18.1</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<finalName>vrsms-server</finalName>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!--
+					  The pipeline's test stage runs unit tests only. Two suites are
+					  deliberately held back because a CI agent cannot satisfy them:
+					    integration - needs a reachable PostgreSQL instance
+					    ui          - needs a real Chrome browser and a running frontend
+					  Override with -DexcludedGroups= to run everything locally.
+					-->
+					<excludedGroups>${test.excludedGroups}</excludedGroups>
+				</configuration>
+			</plugin>
+
+			<!-- Produces the coverage report that the SonarQube stage uploads. -->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>${jacoco.version}</version>
+				<executions>
+					<execution>
+						<id>jacoco-prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>jacoco-report</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.sonarsource.scanner.maven</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>${sonar-maven-plugin.version}</version>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

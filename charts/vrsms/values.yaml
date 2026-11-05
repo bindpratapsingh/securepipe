@@ -1,0 +1,110 @@
+# Defaults for the VRSMS chart. The Jenkins pipeline overrides image.tag on
+# every build with --set, so each deploy rolls out a distinct image.
+
+replicaCount: 1
+
+image:
+  repository: vrsms-server
+  tag: latest
+  # IfNotPresent, not Always: the image is built on the host and side-loaded
+  # into minikube with "minikube image load". It does not exist in any
+  # registry, so Always would make Kubernetes try Docker Hub and fail
+  # with ErrImagePull.
+  pullPolicy: IfNotPresent
+
+service:
+  type: NodePort
+  port: 8080
+  # Fixed so "minikube service" and the docs always show the same URL.
+  nodePort: 30080
+
+# The app is small but the JVM needs room to start. Limits keep a runaway
+# build from starving the rest of the cluster.
+resources:
+  requests:
+    cpu: 100m
+    memory: 384Mi
+  limits:
+    cpu: 1000m
+    memory: 768Mi
+
+# Spring Boot Actuator probe endpoints.
+#
+# The two probes answer different questions and must not share a path:
+#   liveness  - "is this JVM wedged?"  Restarting is the only cure.
+#   readiness - "can it serve traffic right now?"  Pull it from the Service.
+#
+# /actuator/health includes the database health indicator, so using it for
+# liveness would mean a brief PostgreSQL outage kills every pod in a restart
+# loop. The dedicated liveness group deliberately excludes it.
+probes:
+  liveness:
+    path: /actuator/health/liveness
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    failureThreshold: 6
+  readiness:
+    path: /actuator/health/readiness
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    failureThreshold: 18
+
+# --- PostgreSQL -------------------------------------------------------------
+# Deployed as part of this chart rather than pulled in as a dependency, so the
+# whole thing installs with no "helm dependency update" and no network fetch.
+#
+# The VRSMS entities map their enums with @JdbcTypeCode(SqlTypes.NAMED_ENUM),
+# which compiles to native PostgreSQL "CREATE TYPE ... AS ENUM". H2 cannot
+# generate that schema, so a real PostgreSQL is not optional here.
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  database: vrsms
+  username: vrsms
+  # Demo credential. A real deployment would source this from a secret
+  # manager - see the README on known shortcuts.
+  password: vrsms-dev-password
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  # emptyDir, so the database is wiped when the pod restarts. Correct for a
+  # throwaway demo cluster and it avoids depending on a StorageClass.
+  persistence:
+    enabled: false
+
+# Hibernate generates the schema on first boot. "update" rather than "none",
+# because the demo database starts empty.
+jpa:
+  ddlAuto: update
+  showSql: false
+
+# Twilio is only exercised by the OTP endpoints, which the demo never calls.
+# The values are injected because AuthService reads them with @Value and the
+# Spring context fails to start if they are absent.
+twilio:
+  accountSid: "ACdummy00000000000000000000000000"
+  authToken: "dummy-auth-token"
+  verifyServiceSid: "VAdummy00000000000000000000000000"
+
+# Matches the non-root user baked into the application Dockerfile.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+nameOverride: ""
+fullnameOverride: ""

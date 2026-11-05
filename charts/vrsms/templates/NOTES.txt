@@ -1,0 +1,30 @@
+{{ .Chart.Name }} {{ .Chart.Version }} deployed as release {{ .Release.Name }}.
+
+  Image:     {{ .Values.image.repository }}:{{ .Values.image.tag }}
+  Namespace: {{ .Release.Namespace }}
+  Replicas:  {{ .Values.replicaCount }}
+
+Reach the application:
+
+  minikube service {{ include "vrsms.fullname" . }} --namespace {{ .Release.Namespace }} --url
+
+Or port-forward, which also works inside a Codespace:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "vrsms.fullname" . }} 8081:{{ .Values.service.port }}
+  curl http://localhost:8081/actuator/health
+
+Inspect what is running:
+
+  kubectl --namespace {{ .Release.Namespace }} get all
+  kubectl --namespace {{ .Release.Namespace }} logs deploy/{{ include "vrsms.fullname" . }} -f
+  helm history {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+Roll back the previous deploy:
+
+  helm rollback {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+{{- if .Values.postgres.enabled }}
+
+PostgreSQL runs in-cluster at {{ include "vrsms.postgres.fullname" . }}:5432 on
+emptyDir storage, so its data is lost whenever that pod restarts. That is
+intentional for a demo cluster.
+{{- end }}

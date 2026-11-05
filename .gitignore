@@ -1,0 +1,24 @@
+# --- Build output ---
+app/target/
+reports/
+
+# --- Generated secrets -------------------------------------------------------
+# scripts/01-start-toolchain.sh writes the Jenkins and SonarQube credentials
+# and the Sonar API token here. Never commit it.
+ci/.env
+
+# --- Local tool state ---
+.minikube/
+*.log
+
+# --- IDE / OS ---
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+.DS_Store
+Thumbs.db

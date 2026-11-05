@@ -1,0 +1,91 @@
+{{- if .Values.postgres.enabled }}
+{{/*
+A single-replica PostgreSQL for the demo cluster.
+
+Deliberately not a StatefulSet with a PersistentVolumeClaim: this database is
+disposable, and emptyDir storage lets the chart install on any cluster without
+needing a StorageClass. A real deployment would use a managed database or a
+PostgreSQL operator, not this.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vrsms.postgres.fullname" . }}
+  labels:
+    {{- include "vrsms.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  replicas: 1
+  strategy:
+    # The pod holds the data directory, so the old pod must be gone before the
+    # replacement starts. A RollingUpdate would try to run two at once.
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "vrsms.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        {{- include "vrsms.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.username | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vrsms.fullname" . }}
+                  key: SPRING_DATASOURCE_PASSWORD
+            # The postgres image will not initialise into a directory that
+            # already has contents, and a fresh mount point counts, so the
+            # data lives in a subdirectory of the volume.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.postgres.username | quote }}
+                - -d
+                - {{ .Values.postgres.database | quote }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
+          resources:
+            {{- toYaml .Values.postgres.resources | nindent 12 }}
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vrsms.postgres.fullname" . }}
+  labels:
+    {{- include "vrsms.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "vrsms.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+{{- end }}
